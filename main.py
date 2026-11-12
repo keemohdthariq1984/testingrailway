@@ -12,20 +12,26 @@ def read_root():
 
 @app.get("/rates")
 async def get_forex_rates():
-    url = "https://frankfurter.app"
+    # Updated Frankfurter v2 endpoint
+    url = "https://frankfurter.dev"
     
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(follow_redirects=True) as client:
         response = await client.get(url)
         
     if response.status_code != 200:
-        raise HTTPException(status_code=502, detail="Failed to fetch forex data")
+        raise HTTPException(
+            status_code=502, 
+            detail=f"Frankfurter API returned status {response.status_code}: {response.text}"
+        )
         
     data = response.json()
-    rates = data["rates"]
     
-    # Invert the rates (since API returns 1 MYR -> X Foreign Currency)
+    # Map the list of quote objects into a dictionary (e.g., {"USD": 0.225, ...})
+    rates = {item["quote"]: item["rate"] for item in data}
+    date = data[0]["date"] if data else "unknown"
+    
     return {
-        "date": data["date"],
+        "date": date,
         "base": "MYR",
         "pairs": {
             "USD/MYR": round(1 / rates["USD"], 4),
